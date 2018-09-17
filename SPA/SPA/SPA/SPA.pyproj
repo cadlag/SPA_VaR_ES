@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>45449909-8ae8-4189-bf42-574b3ef2a98a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>test1.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -28,6 +28,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="SPA.py" />
+    <Compile Include="test1.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="vasicek.py">
       <SubType>Code</SubType>
     </Compile>

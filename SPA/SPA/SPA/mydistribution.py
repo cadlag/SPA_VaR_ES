@@ -20,6 +20,9 @@ class MyDistribution(object):
     def copy(self):
         from copy import copy
         return copy(self)
+
+    def transform(self, x):
+        pass
         
 
 class MyNormal(MyDistribution):
@@ -53,6 +56,16 @@ class MyNormal(MyDistribution):
     def rvs(self, size = 1, seed = None):
         from scipy.stats import norm
         return norm.rvs(loc = self.mean_, scale = self.sigma_, size = size)
+
+    def tail_expectation(self, x):
+        import numpy as np
+        from math import pi
+        return self.sigma_ / 2 / pi * np.exp(- (x - self.mean_)**2/2/self.sigma_**2) + (
+            self.mean_ - x) * (1 - self.cdf( (x-self.mean_)/self.sigma_))
+
+    def transform(self, x):
+        return x
+
 
 
 class ConditionalLossDist(MyDistribution):
@@ -179,6 +192,54 @@ class StuderTiltedDistNeg(StuderTiltedDist):
         return super(StuderTiltedDistNeg, self).CGF(-x, order)
        
 
+#class BaseDistribution(MyDistribution):
+#    def __init__(self):
+#        pass
 
-        
+#    def density(self, x):
+#        pass
+
+#    def cdf(self, x):
+#        pass
+
+#    def ppf(self, x):
+#        pass
+
+#    def invCGF1(self, y):
+#        pass
+
+
+class MyGamma(MyDistribution):
+    def __init__(self, shape, scale):
+        self.shape = shape
+        self.scale = scale
+
+    def density(self, x):
+        from scipy.stats import gamma
+        return gamma.pdf(x, self.shape, loc=0, scale=self.scale)
+
+    def cdf(self, x):
+        from scipy.stats import gamma
+        return gamma.cdf(x, self.shape, loc=0, scale=self.scale)
+
+    def CGF(self, x, order = 0):
+        from numpy import log
+        from math import factorial
+        if order == 0:
+            return -self.shape * log(1-self.scale * x)
+        else:
+            return self.shape * self.scale**order / (1-self.scale*x)**order * factorial(order - 1)
+
+    def tail_expectation(self, x):
+        gma = MyGamma(self.shape + 1, self.scale)
+        return self.shape*self.scale*( 1.0 - gma.cdf(x) ) - x*(1 - self.cdf(x))
+
+    def transform(self, x):
+        from numpy import exp
+        return 1/self.scale*(1.0 - exp(-x))
+            
+    #def invCGF1(self, y):
+    #    from math import factorial
+    #    return (1 - (factorial(order - 1) * self.shape / y)**(1.0/order)* self.scale) / self.scale
+
     

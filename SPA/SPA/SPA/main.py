@@ -69,7 +69,7 @@ if nonGaussian == False:
     #end = time()
     #print end - start
 
-    print 'testing SP formulas for fixed y = 0...'
+    print('testing SP formulas for fixed y = 0...')
 
     studer = StuderTiltedDist(avg_loss)
     spa_studer = SPA_Studer(avg_loss)
@@ -96,7 +96,7 @@ if nonGaussian == False:
 
     #print es_studer, end - start
 
-    print 'testing vasicek...'
+    print('testing vasicek...')
 
     n = 100
     weights = np.empty(n)
@@ -147,13 +147,13 @@ if nonGaussian == False:
 
         end = time()
 
-        print i, end - start
-        print 'VaR_MC: {}, VaR_SP: {}'.format(VaR_MC[i], VaR_SP[i])
-        print 'ES_MC: {}'.format(ES_MC[i])
-        print 'ES_Studer: {}'.format(ES_SP_Studer[i])
-        print 'ES_Martin: {}'.format(ES_SP_Martin1[i])
-        print 'ES_KK: {}'.format(ES_SP_KK[i])
-        print 'ES_BW: {}'.format(ES_SP_BW[i])
+        print(i, end - start)
+        print('VaR_MC: {}, VaR_SP: {}'.format(VaR_MC[i], VaR_SP[i]))
+        print('ES_MC: {}'.format(ES_MC[i]))
+        print('ES_Studer: {}'.format(ES_SP_Studer[i]))
+        print('ES_Martin: {}'.format(ES_SP_Martin1[i]))
+        print('ES_KK: {}'.format(ES_SP_KK[i]))
+        print('ES_BW: {}'.format(ES_SP_BW[i]))
 
     df = pd.DataFrame(np.array([VaR_MC, VaR_SP, ES_MC, ES_SP_Studer, ES_SP_Martin1, ES_SP_KK, ES_SP_BW]).T, \
         index = 1 - alphas, columns = ['VaR_MC', 'VaR_SP', 'ES_MC', 'ES_Studer', 'ES_Martin', 'ES_KK', 'ES_BW'])

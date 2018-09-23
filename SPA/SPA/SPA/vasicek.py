@@ -18,7 +18,7 @@ class VasicekOneFactor(object):
         self.y_dist_ = y_dist
 
     def sf(self, x):
-        print 'calculating P(L>x)...'
+        print('calculating P(L>x)...')
 
         cond_loss = ConditionalLossDist(self.weights_,self.probs_,self.corrs_)
         func_inner = lambda x,y: SPA_LR(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
@@ -29,7 +29,7 @@ class VasicekOneFactor(object):
     def calcVaR(self, alpha = 0.05):
 
         assert(alpha > 0 and alpha < 1)
-        print 'calculating VaR...'
+        print('calculating VaR...')
 
         cond_loss = ConditionalLossDist(self.weights_,self.probs_,self.corrs_)
         func_inner = lambda x,y: SPA_LR(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
@@ -52,7 +52,7 @@ class VasicekOneFactor(object):
 
     def calcES(self, spa_type, order = 1, alpha = 0.05):
 
-        print 'calculating ES using {}...'.format(spa_type)
+        print('calculating ES using {}...'.format(spa_type))
         try:
             K = self.var_
         except:
@@ -73,7 +73,7 @@ class VasicekOneFactor(object):
     def calcVaRMC(self, alpha = 0.05, loops = 10000):
 
         assert(alpha > 0 and alpha < 1)
-        print 'calculating VaR using MC...'      
+        print('calculating VaR using MC...')  
 
         # prepare thresholds
         thres = self.y_dist_.ppf(self.probs_)
@@ -100,8 +100,8 @@ class VasicekOneFactor(object):
             ES2 += tmp1**2
 
             if i % 100 == 0:
-                print '{}: running VaR: {} ({}); ES: {} ({})'.format(i, s / (i + 1), np.sqrt((s2 - s**2)/(i+1)), \
-                    ES / (i+1), np.sqrt((ES2 - ES**2) / (i+1)) )
+                print('{}: running VaR: {} ({}); ES: {} ({})'.format(i, s / (i + 1), np.sqrt((s2 - s**2)/(i+1)), \
+                    ES / (i+1), np.sqrt((ES2 - ES**2) / (i+1)) ))
 
         return s / loops, np.sqrt((s2 - s**2) / loops), ES / loops, np.sqrt((ES2 - ES**2) / loops)
 

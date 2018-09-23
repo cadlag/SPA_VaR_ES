@@ -2,7 +2,7 @@
 
 def MyFuncByLeggauss(x, func, bd=10, deg=30):
 
-    print 'input x = {}'.format(x)
+    print('input x = {}'.format(x))
 
     samples, weights = leggauss(deg)
 
@@ -11,6 +11,6 @@ def MyFuncByLeggauss(x, func, bd=10, deg=30):
     for i in range(len(samples)):
         tmp = func(x, bd * samples[i]) * bd
         res +=  tmp * weights[i]
-    print 'output y = {}'.format(res)
+    print('output y = {}'.format(res))
 
     return res

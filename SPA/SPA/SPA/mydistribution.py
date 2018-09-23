@@ -232,7 +232,7 @@ class MyGamma(MyDistribution):
 
     def tail_expectation(self, x):
         gma = MyGamma(self.shape + 1, self.scale)
-        return self.shape*self.scale*( 1.0 - gma.cdf(x) ) - x*(1 - self.cdf(x))
+        return self.shape*self.scale*( 1.0 - gma.cdf(x) ) #- x*(1 - self.cdf(x))
 
     def transform(self, x):
         from numpy import exp

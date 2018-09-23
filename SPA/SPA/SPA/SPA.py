@@ -50,8 +50,8 @@ class SPA_LR(SPA):
         
         p = []
         if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
-            return 0.5 - 1.0/(6*sqrt(2*pi))*self.my_dist_.CGF(0,3)/self.my_dist_.CGF(0,2)**1.5
-            Ks = [K*.99, K*1.01]
+            #return 0.5 - 1.0/(6*sqrt(2*pi))*self.my_dist_.CGF(0,3)/self.my_dist_.CGF(0,2)**1.5
+            Ks = [K*.999, K*1.001]
         else:
             Ks = [K]
         for k in Ks:
@@ -122,7 +122,7 @@ class SPA_ButlerWood(SPA):
 
         p = []
         if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
-            Ks = [K*.99, K*1.01]
+            Ks = [K*.999, K*1.001]
         else:
             Ks = [K]
         for k in Ks:
@@ -145,7 +145,7 @@ class SPA_ButlerWood(SPA):
 class SPANonGaussian(SPA):
     def __init__(self, myDist, baseDist):
         self.baseDist_ = baseDist
-        self.spCache_ = {}
+        self.spCache_ = dict()
         return super(SPANonGaussian, self).__init__(myDist)
 
     def getSaddlepoint2(self, K):
@@ -171,7 +171,7 @@ class SPANonGaussian(SPA):
         return res
 
     def getSaddlepoint(self, K = None):
-        if not self.spCache_.has_key(K):
+        if not K in self.spCache_.keys():
             self.spCache_[K] = super(SPANonGaussian, self).getSaddlepoint(K)
         return self.spCache_.get(K)
 
@@ -183,7 +183,7 @@ class SPANonGaussian_Wood(SPANonGaussian):
         from numpy import mean
         p = []
         if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
-            vK = [K*.99, K*1.01]
+            vK = [K*.999, K*1.001]
         else:
             vK = [K]
         for k in vK:
@@ -208,7 +208,7 @@ class SPANonGaussian_ZK(SPANonGaussian):
         p = []
         wood = SPANonGaussian_Wood(self.my_dist_, self.baseDist_)
         if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
-            vK = [K*.99, K*1.01]
+            vK = [K*.999, K*1.001]
         else:
             vK = [K]
         for k in vK:
@@ -222,7 +222,7 @@ class SPANonGaussian_ZK(SPANonGaussian):
             k_2 = self.my_dist_.CGF(z_h, 2)
             mu_h = z_h * sqrt(k_2)
             dx = max(0.0001, k0_1*0.0001)
-            res += k_1_0*wood.approximate(k) + self.baseDist_.density(k0_1) * ((k-k_1_0)*(1/w_h - 1/w_h**3/k0_2 - k0_3/2/w_h/k0_2**1.5/nu_h) + sqrt(k0_2)/mu_h/z_h)
+            res += k_1_0*wood.approximate(k) + self.baseDist_.density(k0_1) * ((k-k_1_0)*(1/w_h - 1/w_h**3/k0_2 - k0_3/2/w_h/k0_2**1.5/mu_h) + sqrt(k0_2)/mu_h/z_h)
             res += (self.baseDist_.density(k0_1 + dx) - self.baseDist_.density(k0_1 - dx))/2/dx * (k - k_1_0)* (1/w_h**2 - sqrt(k0_2) / w_h/mu_h)
             p += [res]
         return mean(p)

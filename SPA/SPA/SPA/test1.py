@@ -52,6 +52,17 @@ class Test_test1(unittest.TestCase):
         for k in K:
             print(gma2.tail_expectation(k), spa_ng.approximate(k))
 
+    def test_ZK3(self):
+        gma = MyGamma(1.0, 1.0)
+        norm = MyNormal(0.0, 1.0)
+        spa_ng = SPANonGaussian_HO(gma, norm)
+        spa1 = SPA_ButlerWood(gma)
+
+        print("test_ZK3")
+        K = [0.9, 1.0, 1.1]
+        for k in K:
+            print(gma.tail_expectation(k), spa_ng.approximate(k), spa1.approximate(k), spa1.approximate(k, 2))
+
 
 if __name__ == '__main__':
     with warnings.catch_warnings():

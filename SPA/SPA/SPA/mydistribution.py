@@ -22,7 +22,7 @@ class MyDistribution(object):
         return copy(self)
 
     def transform(self, x):
-        pass
+        return x
         
 
 class MyNormal(MyDistribution):
@@ -60,8 +60,9 @@ class MyNormal(MyDistribution):
     def tail_expectation(self, x):
         import numpy as np
         from math import pi
-        return self.sigma_ / 2 / pi * np.exp(- (x - self.mean_)**2/2/self.sigma_**2) + (
-            self.mean_ - x) * (1 - self.cdf( (x-self.mean_)/self.sigma_))
+        return self.density(x) - x * self.cdf(-x)
+        #return self.sigma_ / 2 / pi * np.exp(- (x - self.mean_)**2/2/self.sigma_**2) + (
+        #    self.mean_ - x) * (1 - self.cdf( (x-self.mean_)/self.sigma_))
 
     def transform(self, x):
         return x
@@ -237,9 +238,35 @@ class MyGamma(MyDistribution):
     def transform(self, x):
         from numpy import exp
         return 1/self.scale*(1.0 - exp(-x))
-            
-    #def invCGF1(self, y):
-    #    from math import factorial
-    #    return (1 - (factorial(order - 1) * self.shape / y)**(1.0/order)* self.scale) / self.scale
 
-    
+
+class MyInvGauss(MyDistribution):
+    def __init__(self, shape, scale): # lambda, mu
+        self.shape = scale**3 / shape
+        self.scale = scale**2 / shape
+
+    def density(self, x):
+        from scipy.stats import invgauss
+        return invgauss.pdf(x, self.shape, loc=0, scale=self.scale)
+
+    def cdf(self, x):
+        from scipy.stats import invgauss
+        return invgauss.cdf(x, self.shape, loc=0, scale=self.scale)
+
+    def CGF(self, x, order = 0):
+        from numpy import log
+        from math import factorial
+        if order == 0:
+            return self.shape/self.scale * (1- sqrt(1-2*self.scale**2*x/self.shape))
+        else:
+            f = lambda x, n: x if n <= 0 else f(x, n - 1)*(x-n)
+            return self.shape/self.scale * (-2*self.scale**2/self.shape)**order * (1-2*self.scale**2/self.shape)*(0.5 - order) * f(0.5, order - 1)
+
+    def tail_expectation(self, x):
+        from scipy.stats import norm
+        from numpy import sqrt, exp
+        return self.scale*(norm.cdf(-sqrt(self.shape/x)*(x/self.scale - 1)) + exp(2*self.shape/self.scale) * norm.cdf(-sqrt(self.shape/x)*(x/self.scale + 1))) - x*(1-self.cdf(x))
+
+    def transform(self, x):
+        from numpy import exp
+        return 1/(2*self.scale**2/self.shape)*(1.0 - exp(-x)) 

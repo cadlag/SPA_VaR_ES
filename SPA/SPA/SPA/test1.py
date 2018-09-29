@@ -63,6 +63,32 @@ class Test_test1(unittest.TestCase):
         for k in K:
             print(gma.tail_expectation(k), spa_ng.approximate(k), spa1.approximate(k), spa1.approximate(k, 2))
 
+    def test_GetBaseDist(self):
+        print("test_GetBaseDist")
+        gma = MyGamma(1.0, 1.0)
+        spa_ng = SPANonGaussian(gma)
+        self.assertTrue(isinstance(spa_ng.getBaseDist(1.0), MyNormal))
+
+        spa_ng = SPANonGaussian(gma, "gamma")
+        self.assertTrue(isinstance(spa_ng.getBaseDist(1.0), MyGamma))
+        K = 1.0
+        z_h = spa_ng.getSaddlepoint(K)
+        w_h = spa_ng.getSaddlepoint2(K)
+        base = spa_ng.getBaseDist(K)
+        xi_b_4 = base.CGF(w_h, 4) / base.CGF(w_h, 2)**2
+        xi_d_4 = gma.CGF(z_h, 4) / gma.CGF(z_h, 2)**2
+        print("gamma", xi_b_4, xi_d_4)
+        self.assertTrue(xi_b_4 == xi_d_4, "cumulant4 does not match")
+
+        spa_ng = SPANonGaussian(gma, "invgauss")
+        self.assertTrue(isinstance(spa_ng.getBaseDist(1.0), MyInvGauss))
+        z_h = spa_ng.getSaddlepoint(K)
+        w_h = spa_ng.getSaddlepoint2(K)
+        base = spa_ng.getBaseDist(K)
+        xi_b_4 = base.CGF(w_h, 4) / base.CGF(w_h, 2)**2
+        xi_d_4 = gma.CGF(z_h, 4) / gma.CGF(z_h, 2)**2
+        print("invgauss", xi_b_4, xi_d_4)
+        self.assertTrue(xi_b_4 == xi_d_4, "cumulant4 does not match")
 
 if __name__ == '__main__':
     with warnings.catch_warnings():

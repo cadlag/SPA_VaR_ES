@@ -26,13 +26,16 @@ class VasicekOneFactor(object):
 
         return target_func(x)
 
-    def calcVaR(self, alpha = 0.05):
+    def calcVaR(self, alpha = 0.05, baseDist = None):
 
         assert(alpha > 0 and alpha < 1)
         print('calculating VaR...')
 
         cond_loss = ConditionalLossDist(self.weights_,self.probs_,self.corrs_)
-        func_inner = lambda x,y: SPA_LR(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
+        if baseDist == None:
+            func_inner = lambda x,y: SPA_LR(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
+        else:
+            func_inner = lambda x,y: SPANonGaussian_Wood(cond_loss.setY(y), baseDist).approximate(x) * self.y_dist_.density(y)
         target_func = lambda x: MyFuncByLeggauss(x, func_inner, bd = 4, deg = 50) - alpha           
 
         guess = cond_loss.CGF(0, 1)
@@ -50,7 +53,7 @@ class VasicekOneFactor(object):
 
         return res
 
-    def calcES(self, spa_type, order = 1, alpha = 0.05):
+    def calcES(self, spa_type, order = 1, alpha = 0.05, baseDist = None):
 
         print('calculating ES using {}...'.format(spa_type))
         try:
@@ -67,6 +70,12 @@ class VasicekOneFactor(object):
             func_inner = lambda x, y: SPA_Studer(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
         elif spa_type.lower() == 'spa_butlerwood':
             func_inner = lambda x, y: SPA_ButlerWood(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
+        elif spa_type.lower() == 'spanongaussian_zk':
+            func_inner = lambda x, y: SPANonGaussian_ZK(cond_loss.setY(y), baseDist).approximate(x) * self.y_dist_.density(y)
+        elif spa_type.lower() == 'spanongaussian_ho':
+            func_inner = lambda x, y: SPANonGaussian_HO(cond_loss.setY(y), baseDist).approximate(x) * self.y_dist_.density(y)
+        else:
+            raise Exception("spa type " + spa_type + " not supported.")
 
         return MyFuncByLeggauss(K, func_inner, bd = 4.5) / alpha
 
@@ -108,6 +117,7 @@ class VasicekOneFactor(object):
     def calcVaRFormula(self, alpha = 0.05):
         return np.sum(self.y_dist_.cdf( (self.y_dist_.ppf(self.probs_) + np.sqrt(self.corrs_) * self.y_dist_.ppf(1 - alpha)) \
             / np.sqrt(1 - self.corrs_)) * self.weights_)
+
 
 
 

@@ -5,6 +5,7 @@ from mydistribution import *
 
 class Test_test1(unittest.TestCase):
     def test_Wood(self):
+        print("test_Wood")
         gma = MyGamma(1.0, 1.0)
         norm = MyNormal(0.0, 1.0)
         spa_ng = SPANonGaussian_Wood(gma, norm)
@@ -81,7 +82,6 @@ class Test_test1(unittest.TestCase):
         self.assertTrue(xi_b_4 == xi_d_4, "cumulant4 does not match")
 
         spa_ng = SPANonGaussian(gma, "invgauss")
-        self.assertTrue(isinstance(spa_ng.getBaseDist(1.0), MyInvGauss))
         z_h = spa_ng.getSaddlepoint(K)
         w_h = spa_ng.getSaddlepoint2(K)
         base = spa_ng.getBaseDist(K)
@@ -89,6 +89,19 @@ class Test_test1(unittest.TestCase):
         xi_d_4 = gma.CGF(z_h, 4) / gma.CGF(z_h, 2)**2
         print("invgauss", xi_b_4, xi_d_4)
         self.assertTrue(xi_b_4 == xi_d_4, "cumulant4 does not match")
+
+    def test_InvGauss(self):
+        print("test_ingauss")
+        from numpy import sqrt, exp
+        from math import pi
+        lam = 2.0
+        mu = 2.0
+        f = lambda x: sqrt(lam / (2*pi*x**3)) * exp(-lam*(x-mu)**2/(2*mu**2*x))
+        invg = MyInvGauss(lam, mu)
+        f1 = invg.density(2.5)
+        f2 = f(2.5)
+        print(f1, f2)
+        self.assertTrue(f1 == f2)
 
 if __name__ == '__main__':
     with warnings.catch_warnings():

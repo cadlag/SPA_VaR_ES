@@ -225,8 +225,8 @@ class MyGamma(MyDistribution):
 
 class MyInvGauss(MyDistribution):
     def __init__(self, shape, scale): # lambda, mu
-        self.shape = scale**3 / shape
-        self.scale = scale**2 / shape
+        self.shape = scale / shape
+        self.scale = shape
 
     def density(self, x):
         from scipy.stats import invgauss

@@ -88,20 +88,25 @@ class Test_test1(unittest.TestCase):
         xi_b_4 = base.CGF(w_h, 4) / base.CGF(w_h, 2)**2
         xi_d_4 = gma.CGF(z_h, 4) / gma.CGF(z_h, 2)**2
         print("invgauss", xi_b_4, xi_d_4)
-        self.assertTrue(xi_b_4 == xi_d_4, "cumulant4 does not match")
+        self.assertTrue(abs(xi_b_4 - xi_d_4) <= 1e-6, "cumulant4 does not match")
 
     def test_InvGauss(self):
         print("test_ingauss")
         from numpy import sqrt, exp
         from math import pi
-        lam = 2.0
-        mu = 2.0
+        lam = 5.0
+        mu = 1.0
         f = lambda x: sqrt(lam / (2*pi*x**3)) * exp(-lam*(x-mu)**2/(2*mu**2*x))
         invg = MyInvGauss(lam, mu)
         f1 = invg.density(2.5)
         f2 = f(2.5)
         print(f1, f2)
-        self.assertTrue(f1 == f2)
+        self.assertTrue(abs(f1 - f2) <= 1e-6)
+
+        v1 = (invg.CGF(1.001, 0) - invg.CGF(0.999, 0))/0.002
+        v2 =  invg.CGF(1.0, 1)
+        print("CGF", v1, v2)
+        self.assertTrue(abs(v1 - v2) < 1e-6)
 
 if __name__ == '__main__':
     with warnings.catch_warnings():

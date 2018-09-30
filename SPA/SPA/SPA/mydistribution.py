@@ -225,24 +225,26 @@ class MyGamma(MyDistribution):
 
 class MyInvGauss(MyDistribution):
     def __init__(self, shape, scale): # lambda, mu
-        self.shape = scale / shape
-        self.scale = shape
+        self.shape = shape 
+        # scale / shape
+        self.scale = scale 
+        # shape
 
     def density(self, x):
         from scipy.stats import invgauss
-        return invgauss.pdf(x, self.shape, loc=0, scale=self.scale)
+        return invgauss.pdf(x, self.scale / self.shape, loc=0, scale=self.shape)
 
     def cdf(self, x):
         from scipy.stats import invgauss
-        return invgauss.cdf(x, self.shape, loc=0, scale=self.scale)
+        return invgauss.cdf(x, self.scale / self.shape, loc=0, scale=self.shape)
 
     def CGF(self, x, order = 0):
         from numpy import log, sqrt
         if order == 0:
-            return self.shape/self.scale * (1- sqrt(1-2*self.scale**2*x/self.shape))
+            return self.shape/self.scale * (1- sqrt(1.0-2.0*self.scale**2*x/self.shape))
         else:
             f = lambda x, n: x if n <= 0 else f(x, n - 1)*(x-n)
-            return self.shape/self.scale * (-2*self.scale**2/self.shape)**order * (1-2*self.scale**2/self.shape)*(0.5 - order) * f(0.5, order - 1)
+            return -self.shape/self.scale * (-2*self.scale**2/self.shape)**order * (1-2*self.scale**2*x/self.shape)**(0.5 - order) * f(0.5, order - 1)
 
     def tail_expectation(self, x): # E[X1_{X>K}]
         from scipy.stats import norm

@@ -188,7 +188,7 @@ class SPANonGaussian(SPA):
                     z_h = self.getSaddlepoint(K)
                     xi_4 = self.my_dist_.CGF(z_h, 4) / self.my_dist_.CGF(z_h, 2)**2
                     c = z_h * K - self.my_dist_.CGF(z_h, 0)
-                    y = c*sign(z_h) + sqrt(2*c**2 + 30.0*c/xi_4)
+                    y = c*sign(z_h) + sqrt(c**2 + (c*sign(z_h))**2 + 30.0*c/xi_4)
                     lam = (y**2 - c**2)/2.0/c if c != 0.0 else 15.0 / xi_4
                     self.fittedBaseDists_[K] = MyInvGauss(lam, 1.0)
                 else:

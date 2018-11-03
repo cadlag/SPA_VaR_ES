@@ -68,7 +68,7 @@ class MyNormal(MyDistribution):
         return x
 
 
-
+    # uniform correlation
 class ConditionalLossDist(MyDistribution):
 
     def __init__(self, weights, probs, corrs, y_value = 0):

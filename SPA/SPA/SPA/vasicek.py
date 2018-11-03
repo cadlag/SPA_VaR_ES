@@ -17,11 +17,14 @@ class VasicekOneFactor(object):
         self.corrs_ = corrs
         self.y_dist_ = y_dist
 
-    def sf(self, x):
+    def sf(self, x, baseDist = None):
         print('calculating P(L>x)...')
 
         cond_loss = ConditionalLossDist(self.weights_,self.probs_,self.corrs_)
-        func_inner = lambda x,y: SPA_LR(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
+        if baseDist == None:
+            func_inner = lambda x,y: SPA_LR(cond_loss.setY(y)).approximate(x) * self.y_dist_.density(y)
+        else:
+            func_inner = lambda x,y: SPANonGaussian_Wood(cond_loss.setY(y), baseDist).approximate(x) * self.y_dist_.density(y)
         target_func = lambda x: MyFuncByLeggauss(x, func_inner, bd = 4, deg = 50)
 
         return target_func(x)

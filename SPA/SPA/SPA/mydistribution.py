@@ -253,4 +253,39 @@ class MyInvGauss(MyDistribution):
 
     def transform(self, x):
         from numpy import exp
-        return 1/(2*self.scale**2/self.shape)*(1.0 - exp(-x)) 
+        return 1/(2*self.scale**2/self.shape)*(1.0 - exp(-x))
+
+class MyGME(MyDistribution):
+    def __init__(self, lam):
+        self.lam = lam
+
+    def density(self, x):
+        from scipy.stats import norm
+        from numpy import exp
+        return self.lam * exp(self.lam**2/2.0 + self.lam*x - 1) * norm.cdf(-x-self.lam + 1.0/self.lam) + \
+            norm.pdf(1/self.lam - x) - exp(self.lam*x - 1 + self.lam**2/2.0) * norm.pdf(1/self.lam - x - self.lam)
+
+    def cdf(self, x):
+        from scipy.stats import norm
+        from numpy import exp
+        return 1.0 - norm.cdf(1/self.lam - x) + exp(self.lam*x - 1 + self.lam**2/2.0)*norm.cdf(1/self.lam - x - self.lam)
+
+    def CGF(self, x, order = 0):
+        from numpy import log
+        from math import factorial
+        if order == 0:
+            return x**2/2 + x/self.lam + log(self.lam/(self.lam + x))
+        elif order == 1:
+            return x + 1/self.lam - 1/(self.lam + x)
+        elif order == 2:
+            return 1 + 1/(self.lam + x)**2
+        else:
+            return (-1)**order * factorial(order)*(self.lam + x)**(-order)
+
+    def tail_expectation(self, x): # E[X1_{X>K}]
+        pass
+
+    def transform(self, x):
+        from numpy import sqrt
+        c = x + self.lam - 1.0/self.lam
+        return sqrt(c**2 / 4 + 1) + c / 2 - self.lam

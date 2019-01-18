@@ -51,7 +51,7 @@ class VasicekOneFactor(object):
             i = 1
             while sign(target_func(1.0 / (1.0 + a * 2 ** (-sgn * i)))) == sgn:
                 i += 1
-            res = brentq(target_func, 1.0 / (1.0 + a * 2 ** (-sgn * (i - 1))), 1.0 / (1.0 + a * 2 ** (-sgn * i)))
+            res = brentq(target_func, 1.0 / (1.0 + a * 2 ** (-sgn * (i - 1))), 1.0 / (1.0 + a * 2 ** (-sgn * i)), disp=True)
             self.var_ = res
 
         return res
@@ -62,7 +62,7 @@ class VasicekOneFactor(object):
         try:
             K = self.var_
         except:
-            self.calcVaR(alpha)
+            self.calcVaR(alpha = alpha, baseDist=baseDist)
             K = self.var_
 
         cond_loss = ConditionalLossDist(self.weights_, self.probs_, self.corrs_)
@@ -104,18 +104,19 @@ class VasicekOneFactor(object):
             x = np.sqrt(self.corrs_) * y + np.sqrt(1 - self.corrs_) * z
             loss = np.sum((x < thres)*weights, axis = 1)         
             loss.sort()
-            tmp = loss[nsample*(1 - alpha) - 1]
-            tmp1 = loss[nsample*(1 - alpha) - 1:].sum() / (nsample*alpha + 1)
+            idx = (int)(nsample*(1-alpha))
+            tmp = loss[idx - 1]
+            tmp1 = loss[idx - 1:].sum() / (nsample*alpha + 1)
             s += tmp
             ES += tmp1
             s2 += tmp**2
             ES2 += tmp1**2
 
-            if i % 100 == 0:
-                print('{}: running VaR: {} ({}); ES: {} ({})'.format(i, s / (i + 1), np.sqrt((s2 - s**2)/(i+1)), \
-                    ES / (i+1), np.sqrt((ES2 - ES**2) / (i+1)) ))
+            if (i+1) % 100 == 0:
+                print('{}: running VaR: {} ({}); ES: {} ({})'.format(i, s / (i + 1), np.sqrt((s2 - s**2/(i+1))/max(1, i)/(i+1)), \
+                    ES / (i+1), np.sqrt((ES2 - ES**2 / (i+1))/max(1, i)/(i+1)) ))
 
-        return s / loops, np.sqrt((s2 - s**2) / loops), ES / loops, np.sqrt((ES2 - ES**2) / loops)
+        return (s / loops, np.sqrt((s2 - s**2/loops) /(loops - 1) / loops), ES / loops, np.sqrt((ES2 - ES**2 / loops) / (loops-1) / loops))
 
     def calcVaRFormula(self, alpha = 0.05):
         return np.sum(self.y_dist_.cdf( (self.y_dist_.ppf(self.probs_) + np.sqrt(self.corrs_) * self.y_dist_.ppf(1 - alpha)) \

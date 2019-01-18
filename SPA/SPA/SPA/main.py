@@ -100,11 +100,11 @@ if nonGaussian == False:
 
     n = 100
     weights = np.empty(n)
-    weights[:0.2*n] = 1
-    weights[0.2*n:0.4*n] = 4
-    weights[0.4*n:0.6*n] = 9
-    weights[0.6*n:0.8*n] = 16
-    weights[0.8*n:] = 25
+    weights[:int(0.2*n)] = 1
+    weights[int(0.2*n):int(0.4*n)] = 4
+    weights[int(0.4*n):int(0.6*n)] = 9
+    weights[int(0.6*n):int(0.8*n)] = 16
+    weights[int(0.8*n):] = 25
 
     #weights = np.ones(n)
 
@@ -121,7 +121,7 @@ if nonGaussian == False:
     #print end - start
 
     alphas = np.array([0.001, 0.01, 0.05, 0.1, 0.25])
-    #alphas = alphas[0:1]
+    alphas = alphas[0:1]
 
     VaR_MC = np.empty(alphas.size)
     VaR_SP = np.empty(alphas.size)
@@ -134,11 +134,11 @@ if nonGaussian == False:
     for i in range(alphas.size):
         start = time()
 
-        VaR_MC[i], ES_MC[i] = vasicek.calcVaRMC(alpha = alphas[i], loops = 100000)
+        (VaR_MC[i], ES_MC[i], aa, bb) = vasicek.calcVaRMC(alpha = alphas[i], loops = 100)
         VaR_MC[i] *= a
         ES_MC[i] *= a
 
-        #VaR_SP[i] = vasicek.calcVaR(alpha = alphas[i])*a
+        VaR_SP[i] = vasicek.calcVaR(alpha = alphas[i])*a
 
         #ES_SP_Studer[i] = vasicek.calcES('spa_studer', alpha = alphas[i])*a
         #ES_SP_Martin1[i] = vasicek.calcES('spa_martin', alpha = alphas[i])*a
@@ -155,18 +155,67 @@ if nonGaussian == False:
         print('ES_KK: {}'.format(ES_SP_KK[i]))
         print('ES_BW: {}'.format(ES_SP_BW[i]))
 
-    df = pd.DataFrame(np.array([VaR_MC, VaR_SP, ES_MC, ES_SP_Studer, ES_SP_Martin1, ES_SP_KK, ES_SP_BW]).T, \
-        index = 1 - alphas, columns = ['VaR_MC', 'VaR_SP', 'ES_MC', 'ES_Studer', 'ES_Martin', 'ES_KK', 'ES_BW'])
-    df.index.name = 'Alpha'
+    #df = pd.DataFrame(np.array([VaR_MC, VaR_SP, ES_MC, ES_SP_Studer, ES_SP_Martin1, ES_SP_KK, ES_SP_BW]).T, \
+    #    index = 1 - alphas, columns = ['VaR_MC', 'VaR_SP', 'ES_MC', 'ES_Studer', 'ES_Martin', 'ES_KK', 'ES_BW'])
+    #df.index.name = 'Alpha'
 
-    df.to_csv('VaR_ES.csv')
+    #df.to_csv('VaR_ES.csv')
 
 else:
-    gma = MyGamma(1,0.5)
-    norm = MyNormal(1, 1)
-    norm0 = MyNormal(0,1)
-    spa_ng = SPANonGaussian(norm, norm0)
-    print(spa_ng.getSaddlepoint(0.5))
-    print(spa_ng.getSaddlepoint2(0.5))
-    print(spa_ng.getSaddlepoint(1.5))
-    print(spa_ng.getSaddlepoint2(1.5))
+    #gma = MyGamma(1,0.5)
+    #norm = MyNormal(1, 1)
+    #norm0 = MyNormal(0,1)
+    #spa_ng = SPANonGaussian(norm, norm0)
+    #print(spa_ng.getSaddlepoint(0.5))
+    #print(spa_ng.getSaddlepoint2(0.5))
+    #print(spa_ng.getSaddlepoint(1.5))
+    #print(spa_ng.getSaddlepoint2(1.5))
+
+    print('Non-Gaussian vasicek...')
+
+    n = 100
+    weights = np.empty(n)
+    weights[0] = 20
+    weights[1:] =80 / 99.0
+
+    #weights = np.ones(n)
+
+    a = sum(weights)
+
+    vasicek = VasicekOneFactor(weights, 0.01*np.ones(n), 0.2*np.ones(n))
+
+    alphas = np.array([0.001, 0.01, 0.05, 0.1, 0.25])
+    #alphas = alphas[0:1]
+    alphas = alphas[1:2]
+
+    VaR_MC = np.empty(alphas.size)
+    VaR_SP = np.empty(alphas.size)
+    VaR_SPn = np.empty(alphas.size)
+    ES_MC = np.empty(alphas.size)
+    ES_SP_Studer = np.empty(alphas.size)
+    ES_SP_Martin1 = np.empty(alphas.size)
+    VaR_err = np.empty(alphas.size)
+    ES_err = np.empty(alphas.size)
+    
+    for i in range(alphas.size):
+        start = time()
+
+        VaR_MC[i], VaR_err[i], ES_MC[i], ES_err[i] = vasicek.calcVaRMC(alpha = alphas[i], loops = 10000)
+        VaR_MC[i] *= a
+        ES_MC[i] *= a
+
+        gm = MyGamma(20,1)
+        invg = MyInvGauss(10,0.1)
+        VaR_SP[i] = vasicek.calcVaR(alpha = alphas[i], baseDist='gme')*a
+        VaR_SPn[i] = vasicek.calcVaR(alpha = alphas[i], baseDist=None)*a
+
+        #ES_SP_Studer[i] = vasicek.calcES('spanongaussian_zk', alpha = alphas[i], baseDist = 'gamma')*a
+        #ES_SP_Martin1[i] = vasicek.calcES('spanongaussian_ho', alpha = alphas[i], baseDist = 'gamma')*a
+
+        end = time()
+
+        print(i, end - start)
+        print('VaR_MC: {}, VaR_SP: {}, VaR_SPn: {}'.format(VaR_MC[i], VaR_SP[i], VaR_SPn[i]))
+        print('ES_MC: {}'.format(ES_MC[i]))
+        print('ES_Studer: {}'.format(ES_SP_Studer[i]))
+        print('ES_Martin: {}'.format(ES_SP_Martin1[i]))

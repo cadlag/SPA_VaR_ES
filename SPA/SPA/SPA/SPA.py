@@ -64,7 +64,8 @@ class SPA_LR(SPA):
             u = ((1.0 - exp(-sp)) if discrete else sp) * sqrt(self.my_dist_.CGF(sp,2))
             w = sign(sp)*sqrt(2.0*(k*sp-self.my_dist_.CGF(sp,0)))
             p += [1.0-norm.cdf(w)+norm.pdf(w)*(1.0/u-1.0/w )]
-            
+        tmp = mean(p)
+        if tmp > 1: print(self.__str__() + ': {}-->{}'.format(mean(vK), tmp))
         return mean(p)
     
     def __str__(self):
@@ -159,20 +160,42 @@ class SPANonGaussian(SPA):
         z_hat = self.getSaddlepoint(K)
         baseDist = self.getBaseDist(K)
 
-        guess = 0
-        rhs = self.my_dist_.CGF(z_hat, 0) - z_hat * K
-        sgn = sign(rhs - baseDist.CGF(baseDist.transform(guess), 0) + baseDist.transform(guess) * baseDist.CGF(baseDist.transform(guess), 1));
-        func = lambda x : baseDist.CGF(baseDist.transform(x), 0) - baseDist.transform(x) * baseDist.CGF(baseDist.transform(x), 1) - rhs
+        #############################
+        #guess = 0
+        #rhs = self.my_dist_.CGF(z_hat, 0) - z_hat * K
+        #func = lambda x : baseDist.CGF(baseDist.transform(x), 0) - baseDist.transform(x) * baseDist.CGF(baseDist.transform(x), 1) - rhs
+        #sgn = sign(func(guess))
         
+        #if sgn == 0:
+        #    res = guess
+        #else:            
+        #    sgn1 = 0
+        #    for i in range(20):
+        #        tmp = sign(func(2**i))
+        #        tmp1 = sign(func(-2**i))
+        #        if tmp*sgn <= 0 and baseDist.transform(2**i)*z_hat > 0:
+        #            sgn1 = 1
+        #            break
+        #        elif tmp1*sgn <= 0 and baseDist.transform(-2**i)*z_hat > 0:
+        #            sgn1 = -1
+        #            break
+        #        else:
+        #            i += 1
+        #    res = brentq(func, guess if i == 0 else sgn1*2**(i-1), sgn1*2**i)
+        ##############################
+        # use Fenchel transform 
+        sgn = sign(z_hat)
+        rhs = self.my_dist_.CGF(z_hat, 0) - z_hat * K
+        func = lambda x : baseDist.CGF(baseDist.transform(x), 0) - baseDist.transform(x) * baseDist.CGF(baseDist.transform(x), 1) - rhs
         if sgn == 0:
-            res = guess
+            return 0
         else:
-            i = 0
-            sgn1 = sign(K - self.my_dist_.CGF(0, 1))
-            while sign(-func(sgn1*2**i)) == sgn and i < 50:
-                i += 1
-            res = brentq(func, guess if i == 0 else sgn1*2**(i-1), sgn1*2**i)
-
+            guess = baseDist.CGF(0, 1)
+            sgn0 = func(guess) # there are 2 roots < and > G'(0)
+            for i in range(10):
+                if func(guess + sgn*2**i)*sgn0 < 0:
+                    break
+            res = brentq(func, guess if i == 0 else sgn*2**(i-1), sgn*2**i)
         return baseDist.transform(res)
 
     def getBaseDist(self, K = None):
@@ -182,7 +205,7 @@ class SPANonGaussian(SPA):
             if not K in self.fittedBaseDists_.keys():
                 if self.baseDist_.lower() == "gamma":
                     z_h = self.getSaddlepoint(K)
-                    self.fittedBaseDists_[K] = MyGamma(6*self.my_dist_.CGF(z_h, 2)**2/self.my_dist_.CGF(z_h, 4), 1.0)
+                    self.fittedBaseDists_[K] = MyGamma(max(1, 6*self.my_dist_.CGF(0, 2)**2/self.my_dist_.CGF(0, 4)), 1.0) # max-->avoid negative shape
                 elif self.baseDist_.lower() == "invgauss":
                     from numpy import sign, sqrt
                     z_h = self.getSaddlepoint(K)
@@ -191,6 +214,8 @@ class SPANonGaussian(SPA):
                     y = c*sign(z_h) + sqrt(c**2 + (c*sign(z_h))**2 + 30.0*c/xi_4)
                     lam = (y**2 - c**2)/2.0/c if c != 0.0 else 15.0 / xi_4
                     self.fittedBaseDists_[K] = MyInvGauss(lam, 1.0)
+                elif self.baseDist_.lower() == "gme":
+                    self.fittedBaseDists_[K] = MyGME(0.5)
                 else:
                     raise Exception("base distribution type " + self.baseDist_ + " not supported.")
             return self.fittedBaseDists_[K]
@@ -217,6 +242,8 @@ class SPANonGaussian_Wood(SPANonGaussian):
             k_2 = self.my_dist_.CGF(z_h, 2)
             p += [1.0 - baseDist.cdf(k0_1) - baseDist.density(k0_1) * (
             1.0 / w_h - 1.0/z_h * (k0_2 / k_2)**0.5)]
+        tmp = mean(p)
+        if tmp > 1: print(self.__str__() + ': {}-->{}'.format(mean(vK), tmp))
         return mean(p)
 
     def __str__(self):

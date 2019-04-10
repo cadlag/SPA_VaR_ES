@@ -45,26 +45,25 @@ class VasicekOneFactor(object):
         sgn = sign(target_func(guess))          
         
         if sgn == 0:
-            self.var_ = guess
+            res = guess
         else:
             a = 1.0 / guess - 1
             i = 1
             while sign(target_func(1.0 / (1.0 + a * 2 ** (-sgn * i)))) == sgn:
                 i += 1
             res = brentq(target_func, 1.0 / (1.0 + a * 2 ** (-sgn * (i - 1))), 1.0 / (1.0 + a * 2 ** (-sgn * i)), disp=True)
-            self.var_ = res
-
+        #self.var_ = res
         return res
 
     def calcES(self, spa_type, order = 1, alpha = 0.05, baseDist = None):
 
         print('calculating ES using {}...'.format(spa_type))
-        try:
-            K = self.var_
-        except:
-            self.calcVaR(alpha = alpha, baseDist=baseDist)
-            K = self.var_
-
+        #try:
+        #    K = self.var_
+        #except:
+        #    self.calcVaR(alpha = alpha, baseDist=baseDist)
+        #    K = self.var_
+        K = self.calcVaR(alpha = alpha, baseDist=baseDist)
         cond_loss = ConditionalLossDist(self.weights_, self.probs_, self.corrs_)
 
         if spa_type.lower() == 'spa_martin':           
@@ -106,7 +105,7 @@ class VasicekOneFactor(object):
             loss.sort()
             idx = (int)(nsample*(1-alpha))
             tmp = loss[idx - 1]
-            tmp1 = loss[idx - 1:].sum() / (nsample*alpha + 1)
+            tmp1 = loss[idx - 1:].sum() / (nsample*alpha) #why +1?
             s += tmp
             ES += tmp1
             s2 += tmp**2

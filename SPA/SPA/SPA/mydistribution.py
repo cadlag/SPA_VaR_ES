@@ -138,22 +138,39 @@ class ConditionalLossDist(MyDistribution):
 
         norm_weights = self.weights_ / sum(self.weights_)
         cond_p = self.conditionalDP(self.probs_, self.corrs_)
-        tmp = 1.0 - cond_p + cond_p * exp(norm_weights * x)
-        if order == 0:
-            return np.sum(log(tmp))
-        elif order == 1:
-            return np.sum(norm_weights * cond_p * exp(norm_weights * x) / tmp)
-        elif order == 2:
-            return np.sum((1- cond_p)*norm_weights**2 * cond_p * exp(norm_weights * x) / tmp**2)
-        elif order == 3:
-            tmp2 = (1- cond_p)*norm_weights**2 * cond_p * exp(norm_weights * x)
-            return np.sum(tmp2 * norm_weights / tmp**2 - 2*tmp2 * norm_weights*cond_p * exp(norm_weights * x) / tmp**3)
-        elif order == 4:
-            tmp2 = (1- cond_p)*norm_weights**4 * cond_p * exp(norm_weights * x)
-            return np.sum(tmp2/tmp**2 - 6*tmp2*cond_p * exp(norm_weights*x) / tmp**3 \
-                + 6*tmp2 * cond_p**2 ** exp(norm_weights* x * 2) / tmp**4)
+        if x <= 0:
+            tmp = 1.0 - cond_p + cond_p * exp(norm_weights * x)
+            if order == 0:
+                return np.sum(log(tmp))
+            elif order == 1:
+                return np.sum(norm_weights * cond_p * exp(norm_weights * x) / tmp)
+            elif order == 2:
+                return np.sum((1- cond_p)*norm_weights**2 * cond_p * exp(norm_weights * x) / tmp**2)
+            elif order == 3:
+                tmp2 = (1- cond_p)*norm_weights**2 * cond_p * exp(norm_weights * x)
+                return np.sum(tmp2 * norm_weights / tmp**2 - 2*tmp2 * norm_weights*cond_p * exp(norm_weights * x) / tmp**3)
+            elif order == 4:
+                tmp2 = (1- cond_p)*norm_weights**4 * cond_p * exp(norm_weights * x)
+                return np.sum(tmp2/tmp**2 - 6*tmp2*cond_p * exp(norm_weights*x) / tmp**3 \
+                    + 6*tmp2 * cond_p**2 * exp(norm_weights* x * 2) / tmp**4)
+            else:
+                raise ValueError('invalid order value {}'.format(order))
         else:
-            raise ValueError('invalid order value {}'.format(order))
+            tmp = (1.0 - cond_p)*exp(-norm_weights * x) + cond_p
+            if order == 0:
+                return np.sum(log(tmp) + norm_weights * x)
+            elif order == 1:
+                return np.sum(norm_weights * cond_p / tmp)
+            elif order == 2:
+                return np.sum((1- cond_p)*norm_weights**2 * cond_p * exp(-norm_weights * x) / tmp**2)
+            elif order == 3:
+                tmp2 = (1- cond_p)*norm_weights**2 * cond_p * exp(-norm_weights * x)
+                return np.sum(tmp2 * norm_weights / tmp**2 - 2*tmp2 * norm_weights*cond_p / tmp**3)
+            elif order == 4:
+                tmp2 = (1- cond_p)*norm_weights**4 * cond_p * exp(-norm_weights * x)
+                return np.sum(tmp2/tmp**2 - 6*tmp2*cond_p / tmp**3 + 6*tmp2 * cond_p**2 / tmp**4)
+            else:
+                raise ValueError('invalid order value {}'.format(order))
 
 class StuderTiltedDist(MyDistribution):
 
@@ -214,13 +231,16 @@ class MyGamma(MyDistribution):
         else:
             return self.shape * self.scale**order / (1-self.scale*x)**order * factorial(order - 1)
 
-    def tail_expectation(self, x): # E[X1_{X>K}]
+    def tail_expectation(self, x): # E[(X-K)1_{X>K}]
         gma = MyGamma(self.shape + 1, self.scale)
-        return self.shape*self.scale*( 1.0 - gma.cdf(x) )
+        res = self.shape*self.scale*(1.0 - gma.cdf(x)) - x*(1.0-self.cdf(x))
+        #print('x: {}, res: {}'.format(x, res))
+        return res
 
     def transform(self, x):
-        from numpy import exp
-        return 1/self.scale*(1.0 - exp(-x))
+        from numpy import exp, log
+        mu = self.CGF(0, 1)
+        return 1/self.scale - self.shape / exp(x+log(mu)-mu)
 
 
 class MyInvGauss(MyDistribution):
@@ -252,8 +272,10 @@ class MyInvGauss(MyDistribution):
         return self.scale*(norm.cdf(-sqrt(self.shape/x)*(x/self.scale - 1)) + exp(2*self.shape/self.scale) * norm.cdf(-sqrt(self.shape/x)*(x/self.scale + 1)))
 
     def transform(self, x):
-        from numpy import exp
-        return 1/(2*self.scale**2/self.shape)*(1.0 - exp(-x))
+        from numpy import exp, log
+        mu = self.CGF(0, 1)
+        return self.shape/2*(1.0/self.scale**2 - 1.0/exp(2*(x+log(mu)-mu)))
+        #return 1/(2*self.scale**2/self.shape)*(1.0 - exp(-x))
 
 class MyGME(MyDistribution):
     def __init__(self, lam):
@@ -282,10 +304,158 @@ class MyGME(MyDistribution):
         else:
             return (-1)**order * factorial(order)*(self.lam + x)**(-order)
 
-    def tail_expectation(self, x): # E[X1_{X>K}]
-        pass
+    def tail_expectation(self, x): # E[(X-K)1_{X>K}]
+        from numpy import exp
+        from scipy.stats import norm
+        res = norm.pdf(x-1/self.lam)+(1/self.lam-x)*norm.cdf(1/self.lam-self.lam-x)*exp(self.lam*x-1+self.lam**2/2) - x*(1.0 - self.cdf(x))
+        #print('x: {}, res: {}'.format(x, res))
+        return res
 
     def transform(self, x):
         from numpy import sqrt
         c = x + self.lam - 1.0/self.lam
         return sqrt(c**2 / 4 + 1) + c / 2 - self.lam
+
+class KouQV(MyDistribution):
+    def __init__(self, sigma, lam, etap, etan, prob, rate, div):
+        self.sigma = sigma
+        self.lam = lam
+        self.etap = etap
+        self.etan = etan
+        self.prob = prob
+        self.rate = rate
+        self.div = div
+
+    def CGF(self, x, order = 0):
+        from numpy import log, exp, inf, real, sqrt
+        from scipy.integrate import quad
+        from math import pi
+        from scipy.stats import norm
+        sigma = self.sigma
+        lam = self.lam
+        etap= self.etap
+        etan= self.etan
+        prob= self.prob
+        rate= self.rate
+        div= self.div
+        if (real(x) > 0): return inf
+        if order == 0:
+            f = lambda z: exp(x*z**2)-1
+            res = sigma**2 * x
+        elif order == 1:
+            f = lambda z: z**2*exp(x*z**2)
+            res = sigma**2
+        elif order == -1: #analytic
+            c = -x
+            if real(c) < 0.1: return lam*(2*x*(prob/etap**2+(1-prob)/etan**2))+sigma**2*x #approximation to avoid overflow
+            return lam*(prob*etap*exp(etap**2/4/c+log(sqrt(pi/c))+log(norm.cdf(-etap/sqrt(2*c)))) + \
+                (1-prob)*etan*exp(etan**2/4/c+log(sqrt(pi/c))+log(norm.cdf(-etan/sqrt(2*c)))) - 1.0) + sigma**2*x
+        else:
+            f = lambda z: z**(2*order)*exp(x*z**2)
+            res = 0
+        y, err = quad(lambda z: f(z)*prob*etap*exp(-etap*z), 0.0, inf)
+        res += y*lam
+        y, err = quad(lambda z: f(z)*(1-prob)*etan*exp(etan*z), -inf, 0.0)
+        res += y*lam
+        return res
+
+class SVJQV(MyDistribution):
+    def __init__(self, params):
+        self.params = params
+
+    def CGF(self, x, order = 0):
+        if order == 0:
+            from numpy import log, exp, inf, real, sqrt
+            from scipy.integrate import quad
+            from math import pi
+            from scipy.stats import norm
+            theta, kappa, epi, rho, mu, eta, lam, nu, delta, r, x0, v0 = self.params;
+            phi = 0
+            b = 0
+            z = x
+            gam = 0
+
+            tau = 1
+
+            zeta = sqrt((kappa-phi*rho*epi)**2 + epi**2*(phi-phi**2-2*z))
+            psi_ = (kappa-phi*rho*epi)+zeta
+            psi = epi**2*(phi-phi**2-2*z)/psi_
+
+            B = (-(phi-phi**2-2*z)*(1-exp(-zeta*tau)) + b*(psi_*exp(-zeta*tau)+psi))/ \
+                ((psi+epi**2*b)*exp(-zeta*tau)+psi_-epi**2*b)
+
+            lg = ( (psi+epi**2*b)*exp(-zeta*tau) + psi_-epi**2*b ) / (2*zeta)
+            Gamma = r*tau*phi-kappa*theta/epi**2.*(psi*tau + 2*log(lg)) + gam
+
+            k1 = psi + epi**2*b
+            k2 = psi_- epi**2*b
+            k3 = (1-phi*nu*eta)*k1 - eta*(phi-phi**2-2*z+b*psi_)
+            k4 = (1-phi*nu*eta)*k2 - eta*(b*psi-phi+phi**2+2*z)
+            factor = exp(z*mu^2./(1-2*delta^2.*z))/sqrt(1-2*delta^2*z)
+            if k3 == 0:
+                Lambda = - lam*( phi*( exp(mu+delta**2/2)/(1-nu*eta)-1 )+1 )*tau+ \
+                    lam*factor*( k2/k4*tau + (k1/k4)* (1-exp(-zeta*tau))/zeta)
+            elif k4 == 0:
+                Lambda = - lam*( phi*( exp(mu+delta**2/2)/(1-nu*eta)-1 )+1 )*tau+ \
+                    lam*factor*( k1/k3*tau + k2/k3*exp(zeta*tau)*(1-exp(-zeta*tau))/zeta )
+            else:
+                tmp = k1/k3;
+                Lambda = - lam*( phi*( exp(mu+delta**2/2)/(1-nu*eta)-1 )+1 )*tau+ \
+                    lam*factor*( k2*tau/k4 - (tmp-k2/k4)/zeta*log( (k3*exp(-zeta*tau)+k4)/(k3+k4) ))
+            return phi*x0 + B*v0 + z*0 + Gamma + Lambda
+
+        elif order == 1:
+            dx = max([0.0001, x*0.0001])
+            return (self.CGF(x+dx, order=0) - self.CGF(x-dx, order=0))/2/dx
+        elif order == 2: #analytic
+            dx = max([0.0001, x*0.0001])
+            return (self.CGF(x+dx, order=0) + self.CGF(x-dx, order=0) - 2*self.CGF(x, order=0))/dx**2
+        elif order == 3:
+            dx = max([0.0001, x*0.0001])
+            return (self.CGF(x+2*dx, order=0) - 2*self.CGF(x+dx, order=0) + 2*self.CGF(x-dx, order=0) - self.CGF(x-2*dx, order=0))/dx**3/2
+        elif order == 4:
+            dx = max([0.0001, x*0.0001])
+            return (self.CGF(x+2*dx, order=0) - 4*self.CGF(x+dx, order=0) + 6*self.CGF(x,order=0) - 4*self.CGF(x-dx, order=0) + self.CGF(x-2*dx, order=0))/dx**4
+        else:
+            raise('{}-th derivative not available'.format(order))
+
+
+#class MyGME2(MyDistribution): # worse performance
+#    def __init__(self, lam, alpha = 1.0):
+#        self.lam = lam
+#        self.alpha = alpha
+
+#    def density(self, x):
+#        from scipy.stats import norm
+#        from numpy import exp
+#        return self.lam * exp(self.alpha**2*self.lam**2/2.0 + self.lam*x - 1) * norm.cdf((1.0/self.lam-x)/self.alpha-self.lam*self.alpha) + \
+#            norm.pdf((1/self.lam - x)/self.alpha)/self.alpha - 1.0/self.alpha*exp(self.lam*x - 1 + self.alpha**2*self.lam**2/2.0) * norm.pdf((1.0/self.lam-x)/self.alpha-self.lam*self.alpha)
+
+#    def cdf(self, x):
+#        from scipy.stats import norm
+#        from numpy import exp
+#        return 1.0 - norm.cdf((1/self.lam - x)/self.alpha) + exp(self.lam*x - 1 + self.alpha**2*self.lam**2/2.0)*norm.cdf((1.0/self.lam-x)/self.alpha-self.lam*self.alpha)
+
+#    def CGF(self, x, order = 0):
+#        from numpy import log
+#        from math import factorial
+#        if order == 0:
+#            return self.alpha**2*x**2/2 + x/self.lam + log(self.lam/(self.lam + x))
+#        elif order == 1:
+#            return self.alpha**2*x + 1/self.lam - 1/(self.lam + x)
+#        elif order == 2:
+#            return self.alpha**2 + 1/(self.lam + x)**2
+#        else:
+#            return (-1)**order * factorial(order)*(self.lam + x)**(-order)
+
+#    def tail_expectation(self, x): # E[(X-K)1_{X>K}]
+#        from numpy import exp
+#        from scipy.stats import norm
+#        res = norm.pdf(x-1/self.lam)+1/self.lam*norm.cdf(1/self.lam-self.lam-x)*exp(self.lam*x-1+self.lam**2/2) - x*(1.0 - self.cdf(x))
+#        #print('x: {}, res: {}'.format(x, res))
+#        return res
+
+#    def transform(self, x):
+#        from numpy import sqrt
+#        c = x + self.alpha**2*self.lam - 1.0/self.lam
+#        return (sqrt(c**2 / 4/self.alpha**2 + 1) + c / 2/self.alpha)/self.alpha - self.lam

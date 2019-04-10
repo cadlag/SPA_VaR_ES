@@ -16,11 +16,12 @@ from scipy import integrate
 from scipy.stats import norm
 from time import time
 from numpy.polynomial.legendre import leggauss
-import pandas as pd
 
-nonGaussian = True
+calcQVOption = True
+GaussianESF = False
+nonGaussianEST = False
 
-if nonGaussian == False:
+if GaussianESF:
     my_norm = MyNormal(1, 3)
     LR = SPA_LR(my_norm)
 
@@ -161,7 +162,7 @@ if nonGaussian == False:
 
     #df.to_csv('VaR_ES.csv')
 
-else:
+if nonGaussianEST:
     #gma = MyGamma(1,0.5)
     #norm = MyNormal(1, 1)
     #norm0 = MyNormal(0,1)
@@ -173,16 +174,17 @@ else:
 
     print('Non-Gaussian vasicek...')
 
-    n = 100
+    n = 1000
     weights = np.empty(n)
-    weights[0] = 20
-    weights[1:] =80 / 99.0
+    weights[0] = 5
+    weights[1:] = 995 / (n-1)
+    #weights[:] = 1
 
     #weights = np.ones(n)
 
     a = sum(weights)
 
-    vasicek = VasicekOneFactor(weights, 0.01*np.ones(n), 0.2*np.ones(n))
+    vasicek = VasicekOneFactor(weights, 0.005*np.ones(n), 0.16*np.ones(n))
 
     alphas = np.array([0.001, 0.01, 0.05, 0.1, 0.25])
     #alphas = alphas[0:1]
@@ -190,32 +192,93 @@ else:
 
     VaR_MC = np.empty(alphas.size)
     VaR_SP = np.empty(alphas.size)
+    VaR_SP1 = np.empty(alphas.size)
+    VaR_SP2 = np.empty(alphas.size)
+    VaR_SP3 = np.empty(alphas.size)
     VaR_SPn = np.empty(alphas.size)
     ES_MC = np.empty(alphas.size)
-    ES_SP_Studer = np.empty(alphas.size)
-    ES_SP_Martin1 = np.empty(alphas.size)
+    ES_zkn = np.empty(alphas.size)
+    ES_zk1 = np.empty(alphas.size)
+    ES_zk2 = np.empty(alphas.size)
+    ES_hon = np.empty(alphas.size)
+    ES_ho1 = np.empty(alphas.size)
+    ES_ho2 = np.empty(alphas.size)
+    ES_zk3 = np.empty(alphas.size)
+    ES_ho3 = np.empty(alphas.size)
     VaR_err = np.empty(alphas.size)
     ES_err = np.empty(alphas.size)
     
     for i in range(alphas.size):
         start = time()
-
+        # 5/5/90: 5.90/6.59
+        # 5/95: 4.93/5.98
         VaR_MC[i], VaR_err[i], ES_MC[i], ES_err[i] = vasicek.calcVaRMC(alpha = alphas[i], loops = 10000)
         VaR_MC[i] *= a
         ES_MC[i] *= a
 
-        gm = MyGamma(20,1)
-        invg = MyInvGauss(10,0.1)
-        VaR_SP[i] = vasicek.calcVaR(alpha = alphas[i], baseDist='gme')*a
+        #gm = MyGamma(1,1)
+        #invg = MyInvGauss(10,0.1)
+        #gme = MyGME(10.0)
+        #VaR_SP[i] = vasicek.calcVaR(alpha = alphas[i], baseDist=gm)*a
+        VaR_SP1[i] = vasicek.calcVaR(alpha = alphas[i], baseDist='gamma')*a
+        VaR_SP2[i] = vasicek.calcVaR(alpha = alphas[i], baseDist='gme')*a
+        #VaR_SP3[i] = vasicek.calcVaR(alpha = alphas[i], baseDist='gme2')*a
         VaR_SPn[i] = vasicek.calcVaR(alpha = alphas[i], baseDist=None)*a
 
-        #ES_SP_Studer[i] = vasicek.calcES('spanongaussian_zk', alpha = alphas[i], baseDist = 'gamma')*a
-        #ES_SP_Martin1[i] = vasicek.calcES('spanongaussian_ho', alpha = alphas[i], baseDist = 'gamma')*a
-
+        ES_zkn[i] = vasicek.calcES('spanongaussian_zk', alpha = alphas[i], baseDist = None)*a
+        ES_zk1[i] = vasicek.calcES('spanongaussian_zk', alpha = alphas[i], baseDist = 'gamma')*a
+        ES_zk2[i] = vasicek.calcES('spanongaussian_zk', alpha = alphas[i], baseDist = 'gme')*a
+        #ES_zk3[i] = vasicek.calcES('spanongaussian_zk', alpha = alphas[i], baseDist = 'gme2')*a
+        ES_hon[i] = vasicek.calcES('spanongaussian_ho', alpha = alphas[i], baseDist = None)*a
+        ES_ho1[i] = vasicek.calcES('spanongaussian_ho', alpha = alphas[i], baseDist = 'gamma')*a
+        ES_ho2[i] = vasicek.calcES('spanongaussian_ho', alpha = alphas[i], baseDist = 'gme')*a
+        #ES_ho3[i] = vasicek.calcES('spanongaussian_ho', alpha = alphas[i], baseDist = 'gme2')*a
+        
         end = time()
 
         print(i, end - start)
-        print('VaR_MC: {}, VaR_SP: {}, VaR_SPn: {}'.format(VaR_MC[i], VaR_SP[i], VaR_SPn[i]))
-        print('ES_MC: {}'.format(ES_MC[i]))
-        print('ES_Studer: {}'.format(ES_SP_Studer[i]))
-        print('ES_Martin: {}'.format(ES_SP_Martin1[i]))
+        print('VaR_MC: {} ({}), VaR_SPn: {}, VaR_SP1: {}, VaR_SP2: {}, Var_SP3: {}'.format(VaR_MC[i], VaR_err[i], VaR_SPn[i], VaR_SP1[i], VaR_SP2[i], VaR_SP3[i]))
+        print('ES_MC: {} ({}), ES_zkn: {}, ES_zk1: {}, ES_zk2: {}, ES_zk3: {}'.format(ES_MC[i], ES_err[i], ES_zkn[i], ES_zk1[i], ES_zk2[i], ES_zk3[i]))
+        print('ES_MC: {} ({}), ES_hon: {}, ES_ho1: {}, ES_ho2: {}, ES_ho3: {}'.format(ES_MC[i], ES_err[i], ES_hon[i], ES_ho1[i], ES_ho2[i], ES_ho3[i]))
+
+
+if calcQVOption:
+    sigma = 0.3
+    lam = 3.97
+    etap = 16.67
+    etan = 10.0
+    p = 0.15
+    r = 0.03
+    kouQV = KouQV(sigma, lam, etap, etan, p, r, 0)
+    normal = MyNormal()
+    gamma = MyGamma(0.2,1)
+
+    ho = SPANonGaussian_HO(kouQV, normal)
+    ho_gamma = SPANonGaussian_HO(kouQV, gamma)
+    wood = SPANonGaussian_Wood(kouQV, normal)
+    wood_gmmma = SPANonGaussian_Wood(kouQV, gamma)
+    studer = SPA_Studer(kouQV)
+    martin = SPA_Martin(kouQV)
+    lr = SPA_LR(kouQV)
+
+    Katm = kouQV.CGF(0, 1)
+    
+    from numpy import linspace
+    vK = [0.1294]
+    #vK = linspace(Katm*0.7, Katm*0.99, 5)
+    for K in vK:
+        tail_prob = wood.approximate(K)
+        tail_prob_gamma = wood_gmmma.approximate(K)
+        ho1 = martin.approximate(K, order=2)
+        ho2 = ho_gamma.approximate(K)
+
+        from numpy import real, exp, inf
+        from math import pi
+        from myfunctions import MyFuncByLeggauss
+        from scipy.integrate import quad
+        c = -5.0
+        f = lambda x, u: real(exp(kouQV.CGF(c+1.j*u, -1)-(c+1.j*u)*K)/(c+1.j*u)**2)/pi
+        func = lambda z: f(0,z)
+        bench,err=quad(func, 0, 2048)
+        #bench = MyFuncRangeByLeggauss(0, f, 0, 2000)
+        print('{}\t {}, {}, {}'.format(K, ho1 - K*tail_prob - Katm + K, ho2 - K*tail_prob_gamma- Katm + K, bench))

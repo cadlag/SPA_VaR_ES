@@ -195,7 +195,7 @@ class SPANonGaussian(SPA):
             for i in range(10):
                 if func(guess + sgn*2**i)*sgn0 < 0:
                     break
-            res = brentq(func, guess if i == 0 else sgn*2**(i-1), sgn*2**i)
+            res = brentq(func, guess if i == 0 else guess+sgn*2**(i-1), guess+sgn*2**i)
         return baseDist.transform(res)
 
     def getBaseDist(self, K = None):
@@ -205,17 +205,53 @@ class SPANonGaussian(SPA):
             if not K in self.fittedBaseDists_.keys():
                 if self.baseDist_.lower() == "gamma":
                     z_h = self.getSaddlepoint(K)
-                    self.fittedBaseDists_[K] = MyGamma(max(1, 6*self.my_dist_.CGF(0, 2)**2/self.my_dist_.CGF(0, 4)), 1.0) # max-->avoid negative shape
+                    xi = self.my_dist_.CGF(z_h, 4) / self.my_dist_.CGF(z_h, 2)**2
+                    if xi <= 0:
+                        print('back solving lam failed: xi = {}'.format(xi))
+                        lam = 0.2
+                    else:
+                        lam = 6/xi
+                    self.fittedBaseDists_[K] = MyGamma(lam, 1.0) # max-->avoid negative shape
                 elif self.baseDist_.lower() == "invgauss":
                     from numpy import sign, sqrt
-                    z_h = self.getSaddlepoint(K)
+                    #z_h = self.getSaddlepoint(K)
+                    z_h = 0.0
                     xi_4 = self.my_dist_.CGF(z_h, 4) / self.my_dist_.CGF(z_h, 2)**2
                     c = z_h * K - self.my_dist_.CGF(z_h, 0)
                     y = c*sign(z_h) + sqrt(c**2 + (c*sign(z_h))**2 + 30.0*c/xi_4)
                     lam = (y**2 - c**2)/2.0/c if c != 0.0 else 15.0 / xi_4
                     self.fittedBaseDists_[K] = MyInvGauss(lam, 1.0)
                 elif self.baseDist_.lower() == "gme":
-                    self.fittedBaseDists_[K] = MyGME(0.5)
+                    #z_h = self.getSaddlepoint(K)
+                    from numpy import sqrt, sign
+                    #xi = self.my_dist_.CGF(0, 4) / self.my_dist_.CGF(0, 2)**2
+                    #if xi < 6 and xi > 0:
+                    #    lam = sqrt(sqrt(6/xi)-1)
+                    #else:
+                    #    print('back solving lam failed: xi = {}'.format(xi))
+                    #    lam = 1.0
+                    # match variance
+                    xi = self.my_dist_.CGF(0, 2)
+                    if xi > 1:
+                        lam = 1.0 / sqrt(xi - 1)
+                    else:
+                        lam = 10.0
+                    self.fittedBaseDists_[K] = MyGME(lam)
+                elif self.baseDist_.lower() == "gme2":
+                    from numpy import sqrt, sign
+                    xi = self.my_dist_.CGF(0, 2)
+                    if xi > 1:
+                        lam = 1.0 / sqrt(xi - 1)
+                        alpha = 1.0
+                    else:
+                        xi4 = self.my_dist_.CGF(0, 4) / self.my_dist_.CGF(0, 2)**2
+                        if xi4 < 6 and xi4 > 0:
+                            lam = sqrt(sqrt(6.0/xi4)-1)
+                        else:
+                            print('back solving lam failed: xi = {}'.format(xi))
+                            lam = 20.0
+                        alpha = sqrt(xi - 1.0/lam**2) if xi > 1.0/lam**2 else 1.0
+                    self.fittedBaseDists_[K] = MyGME2(lam, alpha)
                 else:
                     raise Exception("base distribution type " + self.baseDist_ + " not supported.")
             return self.fittedBaseDists_[K]

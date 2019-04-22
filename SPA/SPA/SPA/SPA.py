@@ -32,7 +32,7 @@ class SPA(object):
             self.spCache_[K] = self.my_dist_.transform(res)
         return self.spCache_[K]
     
-    def approximate(self, K = None, order = 1):
+    def approximate(self, K = None, order = 1, includeTailProb=False):
         pass
     
     def __str__(self):
@@ -65,7 +65,7 @@ class SPA_LR(SPA):
             w = sign(sp)*sqrt(2.0*(k*sp-self.my_dist_.CGF(sp,0)))
             p += [1.0-norm.cdf(w)+norm.pdf(w)*(1.0/u-1.0/w )]
         tmp = mean(p)
-        if tmp > 1: print(self.__str__() + ': {}-->{}'.format(mean(vK), tmp))
+        if tmp > 1: print(self.__str__() + ': {}-->{}'.format(mean(Ks), tmp))
         return mean(p)
     
     def __str__(self):
@@ -262,22 +262,34 @@ class SPANonGaussian_Wood(SPANonGaussian):
     def __init__(self, myDist, baseDist):
         return super(SPANonGaussian_Wood, self).__init__(myDist, baseDist)
 
-    def approximate(self, K = None, order = 1):
+    def approximate(self, K = None, order = 1, includeTailProb=False):
         from numpy import mean
         p = []
-        if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
-            vK = [K*.999, K*1.001]
+        useFD = True
+        close2ATM = abs(K - self.my_dist_.CGF(0,1)) < 1e-6
+        if close2ATM:
+            vK = [K*.99, K*1.01] if useFD else [K]
         else:
             vK = [K]
         for k in vK:
             baseDist = self.getBaseDist(k)
-            z_h = self.getSaddlepoint(k)
-            w_h = self.getSaddlepoint2(k)
-            k0_1 = baseDist.CGF(w_h, 1)
-            k0_2 = baseDist.CGF(w_h, 2)
-            k_2 = self.my_dist_.CGF(z_h, 2)
-            p += [1.0 - baseDist.cdf(k0_1) - baseDist.density(k0_1) * (
-            1.0 / w_h - 1.0/z_h * (k0_2 / k_2)**0.5)]
+            if close2ATM and not useFD:
+                k_1 = self.my_dist_.CGF(0, 1)
+                k_2 = self.my_dist_.CGF(0, 2)
+                k_3 = self.my_dist_.CGF(0, 3)
+                k_4 = self.my_dist_.CGF(0, 4)
+                k0_1 = baseDist.CGF(0, 1)
+                k0_2 = baseDist.CGF(0, 2)
+                k0_3 = baseDist.CGF(0, 3)
+                k0_4 = baseDist.CGF(0, 4)
+                p += [1.0 - baseDist.cdf(k0_1) - baseDist.density(k0_1)*k0_2/6*(k_3/k_2**1.5-k0_3/k0_2**1.5)]
+            else:
+                z_h = self.getSaddlepoint(k)
+                w_h = self.getSaddlepoint2(k)
+                k0_1 = baseDist.CGF(w_h, 1)
+                k0_2 = baseDist.CGF(w_h, 2)
+                k_2 = self.my_dist_.CGF(z_h, 2)
+                p += [1.0 - baseDist.cdf(k0_1) - baseDist.density(k0_1) * (1.0 / w_h - 1.0/z_h * (k0_2 / k_2)**0.5)]
         tmp = mean(p)
         if tmp > 1: print(self.__str__() + ': {}-->{}'.format(mean(vK), tmp))
         return mean(p)
@@ -289,12 +301,12 @@ class SPANonGaussian_ZK(SPANonGaussian):
     def __init__(self, myDist, baseDist):
         return super(SPANonGaussian_ZK, self).__init__(myDist, baseDist)
 
-    def approximate(self, K = None, order = 1):
+    def approximate(self, K = None, order = 1, includeTailProb=False):
         from numpy import sqrt, mean
         p = []
         baseDist = self.getBaseDist(K)
         wood = SPANonGaussian_Wood(self.my_dist_, baseDist)
-        if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
+        if close2ATM:
             vK = [K*.999, K*1.001]
         else:
             vK = [K]
@@ -309,7 +321,8 @@ class SPANonGaussian_ZK(SPANonGaussian):
             k_2 = self.my_dist_.CGF(z_h, 2)
             mu_h = z_h * sqrt(k_2)
             dx = max(0.0001, k0_1*0.0001)
-            res += k_1_0*wood.approximate(k) + baseDist.density(k0_1) * ((k-k_1_0)*(1/w_h - 1/w_h**3/k0_2 - k0_3/2/w_h/k0_2**1.5/mu_h) + sqrt(k0_2)/mu_h/z_h)
+            if not includeTailProb: res += k_1_0*wood.approximate(k)
+            res += baseDist.density(k0_1) * ((k-k_1_0)*(1/w_h - 1/w_h**3/k0_2 - k0_3/2/w_h/k0_2**1.5/mu_h) + sqrt(k0_2)/mu_h/z_h)
             res += (baseDist.density(k0_1 + dx) - baseDist.density(k0_1 - dx))/2/dx * (k - k_1_0)* (1/w_h**2 - sqrt(k0_2) / w_h/mu_h)
             p += [res]
         return mean(p)
@@ -321,27 +334,47 @@ class SPANonGaussian_HO(SPANonGaussian):
     def __init__(self, myDist, baseDist):
         return super(SPANonGaussian_HO, self).__init__(myDist, baseDist)
 
-    def approximate(self, K = None, order = 1):
+    def approximate(self, K = None, order = 1, includeTailProb=False):
         from numpy import sqrt, mean
         p = []
+        useFD = True
+        close2ATM = abs(K - self.my_dist_.CGF(0,1)) < 1e-6
         baseDist = self.getBaseDist(K)
         wood = SPANonGaussian_Wood(self.my_dist_, baseDist)
-        if abs(K - self.my_dist_.CGF(0,1)) < 1e-6:
-            vK = [K*.999, K*1.001]
+        if close2ATM:
+            if useFD: 
+                vK = [K*.99, K*1.01] if useFD else [K]
+            else:
+                vK = [K]
         else:
             vK = [K]
         for k in vK:
-            z_h = self.getSaddlepoint(k)
-            w_h = self.getSaddlepoint2(k)
-            k_1_0 = self.my_dist_.CGF(0, 1)
-            k0_1 = baseDist.CGF(w_h, 1)
-            k0_2 = baseDist.CGF(w_h, 2)
-            #k0_3 = baseDist.CGF(w_h, 3)
-            k_2 = self.my_dist_.CGF(z_h, 2)
-            k_1 = self.my_dist_.CGF(z_h, 1)
-            nu_h = (k_1 - k_1_0)/(k0_1 - baseDist.CGF(0, 1))
-            res = k*wood.approximate(k) + baseDist.density(k0_1) * (sqrt(k0_2/k_2)/z_h**2 - nu_h/w_h**2)
-            res += baseDist.tail_expectation(k0_1) * nu_h
+            res = 0.0
+            if close2ATM and not useFD:
+                k_1 = self.my_dist_.CGF(0, 1)
+                k_2 = self.my_dist_.CGF(0, 2)
+                k_3 = self.my_dist_.CGF(0, 3)
+                k_4 = self.my_dist_.CGF(0, 4)
+                k0_1 = baseDist.CGF(0, 1)
+                k0_2 = baseDist.CGF(0, 2)
+                k0_3 = baseDist.CGF(0, 3)
+                k0_4 = baseDist.CGF(0, 4)
+                tmp = sqrt(k_2 / k0_2)
+                res += baseDist.density(k0_1) / 24 * (1/tmp * (k0_4 / k0_2 - k0_3 ** 2 / k0_2 ** 2) - tmp * (k_4 / k_2 - k_3 ** 2 / k_2 ** 2)) + \
+                    baseDist.tail_expectation(k0_1) * tmp
+            else:
+                z_h = self.getSaddlepoint(k)
+                w_h = self.getSaddlepoint2(k)
+                k_1_0 = self.my_dist_.CGF(0, 1)
+                k0_1 = baseDist.CGF(w_h, 1)
+                k0_2 = baseDist.CGF(w_h, 2)
+                #k0_3 = baseDist.CGF(w_h, 3)
+                k_2 = self.my_dist_.CGF(z_h, 2)
+                k_1 = self.my_dist_.CGF(z_h, 1)
+                nu_h = (k_1 - k_1_0)/(k0_1 - baseDist.CGF(0, 1))
+                if not includeTailProb: res += k*wood.approximate(k)
+                res += baseDist.density(k0_1) * (sqrt(k0_2/k_2)/z_h**2 - nu_h/w_h**2)
+                res += baseDist.tail_expectation(k0_1) * nu_h
             p += [res]
         return mean(p)
 

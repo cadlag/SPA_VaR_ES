@@ -5,6 +5,8 @@ Created on Sun Jul 02 15:17:40 2017
 @author: Daniel
 """
 
+import sympy as sym
+
 class MyDistribution(object):
     
     def __init__(self):
@@ -60,7 +62,8 @@ class MyNormal(MyDistribution):
     def tail_expectation(self, x):
         import numpy as np
         from math import pi
-        return self.density(x) - x * self.cdf(-x)
+        from scipy.stats import norm
+        return self.sigma_*norm.pdf((x-self.mean_)/self.sigma_) + self.mean_ * norm.cdf(-(x-self.mean_)/self.sigma_) - x*(1-self.cdf(x))
         #return self.sigma_ / 2 / pi * np.exp(- (x - self.mean_)**2/2/self.sigma_**2) + (
         #    self.mean_ - x) * (1 - self.cdf( (x-self.mean_)/self.sigma_))
 
@@ -326,6 +329,45 @@ class KouQV(MyDistribution):
         self.rate = rate
         self.div = div
 
+    #def CGF(self, x, order = 0):
+    #    from numpy import log, exp, inf, real, sqrt
+    #    from scipy.integrate import quad
+    #    from math import pi
+    #    from scipy.stats import norm
+    #    sigma = self.sigma
+    #    lam = self.lam
+    #    etap= self.etap
+    #    etan= self.etan
+    #    prob= self.prob
+    #    rate= self.rate
+    #    div= self.div
+    #    if (real(x) > 0): return inf
+    #    bump = 0.001
+    #    if order <= 0: #analytic
+    #        c = -x
+    #        if real(c) < 0.1: return lam*(2*x*(prob/etap**2+(1-prob)/etan**2))+sigma**2*x #approximation to avoid overflow
+    #        return lam*(prob*etap*exp(etap**2/4/c+log(sqrt(pi/c))+log(norm.cdf(-etap/sqrt(2*c)))) + \
+    #            (1-prob)*etan*exp(etan**2/4/c+log(sqrt(pi/c))+log(norm.cdf(-etan/sqrt(2*c)))) - 1.0) + sigma**2*x
+    #    elif order == 1:
+    #        f = lambda z: z**2*exp(x*z**2)
+    #        res = sigma**2
+    #        y, err = quad(lambda z: f(z)*prob*etap*exp(-etap*z), 0.0, inf)
+    #        res += y*lam
+    #        y, err = quad(lambda z: f(z)*(1-prob)*etan*exp(etan*z), -inf, 0.0)
+    #        res += y*lam
+    #        return res
+    #    elif order == 2:
+    #        dx = max([bump, x*bump])
+    #        return (self.CGF(x+dx, order=0) + self.CGF(x-dx, order=0) - 2*self.CGF(x, order=0))/dx**2
+    #    elif order == 3:
+    #        dx = max([bump, x*bump])
+    #        return (self.CGF(x+2*dx, order=0) - 2*self.CGF(x+dx, order=0) + 2*self.CGF(x-dx, order=0) - self.CGF(x-2*dx, order=0))/dx**3/2
+    #    elif order == 4:
+    #        dx = max([bump, x*bump])
+    #        return (self.CGF(x+2*dx, order=0) - 4*self.CGF(x+dx, order=0) + 6*self.CGF(x,order=0) - 4*self.CGF(x-dx, order=0) + self.CGF(x-2*dx, order=0))/dx**4
+    #    else:
+    #        raise('{}-th derivative not available'.format(order))
+
     def CGF(self, x, order = 0):
         from numpy import log, exp, inf, real, sqrt
         from scipy.integrate import quad
@@ -354,6 +396,9 @@ class KouQV(MyDistribution):
             f = lambda z: z**(2*order)*exp(x*z**2)
             res = 0
         y, err = quad(lambda z: f(z)*prob*etap*exp(-etap*z), 0.0, inf)
+        #g = lambda x, z: f(z)*prob*etap*exp(-etap*z)
+        #from myfunctions import MyFuncRangeByLeggauss
+        #y = MyFuncRangeByLeggauss(0, g, 0, 2048, 30)
         res += y*lam
         y, err = quad(lambda z: f(z)*(1-prob)*etan*exp(etan*z), -inf, 0.0)
         res += y*lam
@@ -364,12 +409,13 @@ class SVJQV(MyDistribution):
         self.params = params
 
     def CGF(self, x, order = 0):
-        if order == 0:
-            from numpy import log, exp, inf, real, sqrt
-            from scipy.integrate import quad
-            from math import pi
-            from scipy.stats import norm
-            theta, kappa, epi, rho, mu, eta, lam, nu, delta, r, x0, v0 = self.params;
+
+        if order == 0 or order < 0:
+            if order < 0:
+                from sympy import log, exp, sqrt
+            else:
+                from numpy import log, exp, sqrt
+            theta, kappa, epi, rho, mu, eta, lam, nu, delta, r, x0, v0 = self.params
             phi = 0
             b = 0
             z = x
@@ -391,7 +437,7 @@ class SVJQV(MyDistribution):
             k2 = psi_- epi**2*b
             k3 = (1-phi*nu*eta)*k1 - eta*(phi-phi**2-2*z+b*psi_)
             k4 = (1-phi*nu*eta)*k2 - eta*(b*psi-phi+phi**2+2*z)
-            factor = exp(z*mu^2./(1-2*delta^2.*z))/sqrt(1-2*delta^2*z)
+            factor = exp(z*mu**2./(1-2*delta**2.*z))/sqrt(1-2*delta**2*z)
             if k3 == 0:
                 Lambda = - lam*( phi*( exp(mu+delta**2/2)/(1-nu*eta)-1 )+1 )*tau+ \
                     lam*factor*( k2/k4*tau + (k1/k4)* (1-exp(-zeta*tau))/zeta)
@@ -404,21 +450,36 @@ class SVJQV(MyDistribution):
                     lam*factor*( k2*tau/k4 - (tmp-k2/k4)/zeta*log( (k3*exp(-zeta*tau)+k4)/(k3+k4) ))
             return phi*x0 + B*v0 + z*0 + Gamma + Lambda
 
-        elif order == 1:
-            dx = max([0.0001, x*0.0001])
-            return (self.CGF(x+dx, order=0) - self.CGF(x-dx, order=0))/2/dx
-        elif order == 2: #analytic
-            dx = max([0.0001, x*0.0001])
-            return (self.CGF(x+dx, order=0) + self.CGF(x-dx, order=0) - 2*self.CGF(x, order=0))/dx**2
-        elif order == 3:
-            dx = max([0.0001, x*0.0001])
-            return (self.CGF(x+2*dx, order=0) - 2*self.CGF(x+dx, order=0) + 2*self.CGF(x-dx, order=0) - self.CGF(x-2*dx, order=0))/dx**3/2
-        elif order == 4:
-            dx = max([0.0001, x*0.0001])
-            return (self.CGF(x+2*dx, order=0) - 4*self.CGF(x+dx, order=0) + 6*self.CGF(x,order=0) - 4*self.CGF(x-dx, order=0) + self.CGF(x-2*dx, order=0))/dx**4
         else:
-            raise('{}-th derivative not available'.format(order))
+            dx = max(0.0055, 0.001*abs(x))
+            if order == 1:
+                #from sympy.utilities.lambdify import lambdify
+                #from sympy import symbols, diff
+                #s = symbols('s')
+                #fs = self.CGF(s, order = -1)
+                #fs = diff(fs, s)
+                #tmp = fs.evalf(subs={s: x})
+            
+                res = (self.CGF(x+dx, order=0) - self.CGF(x-dx, order=0))/2/dx
+                #print(tmp, res)
+                return res
+            elif order == 2:
+                return (self.CGF(x+dx, order=0) + self.CGF(x-dx, order=0) - 2*self.CGF(x, order=0))/dx**2
+            elif order == 3:          
+                return (self.CGF(x+2*dx, order=0) - 2*self.CGF(x+dx, order=0) + 2*self.CGF(x-dx, order=0) - self.CGF(x-2*dx, order=0))/dx**3/2
+            elif order == 4:          
+                return (self.CGF(x+2*dx, order=0) - 4*self.CGF(x+dx, order=0) + 6*self.CGF(x,order=0) - 4*self.CGF(x-dx, order=0) + self.CGF(x-2*dx, order=0))/dx**4
+            else:
+                raise('{}-th derivative not available'.format(order))
 
+    def transform(self, x):
+        from numpy import sqrt, exp
+        from scipy.stats import norm
+        theta, kappa, epi, rho, mu, eta, lam, nu, delta, r, x0, v0 = self.params
+        upper = min(1.0/2/delta**2, kappa**2/epi**2/2, kappa/eta/2.0)
+        p = norm.cdf(x)
+        #return x
+        return upper*p + (x - upper)*(1.0-p)
 
 #class MyGME2(MyDistribution): # worse performance
 #    def __init__(self, lam, alpha = 1.0):

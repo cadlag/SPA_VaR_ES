@@ -249,36 +249,57 @@ if calcQVOption:
     etan = 10.0
     p = 0.15
     r = 0.03
-    kouQV = KouQV(sigma, lam, etap, etan, p, r, 0)
-    normal = MyNormal()
-    gamma = MyGamma(0.2,1)
+    qv = KouQV(sigma, lam, etap, etan, p, r, 0)
 
-    ho = SPANonGaussian_HO(kouQV, normal)
-    ho_gamma = SPANonGaussian_HO(kouQV, gamma)
-    wood = SPANonGaussian_Wood(kouQV, normal)
-    wood_gmmma = SPANonGaussian_Wood(kouQV, gamma)
-    studer = SPA_Studer(kouQV)
-    martin = SPA_Martin(kouQV)
-    lr = SPA_LR(kouQV)
+    kappa = 3.46
+    theta = 0.0894**2
+    epi = 0.14
+    rho = -0.82
+    mu = -0.086
+    eta = 0.05
+    lam = 0 #0.47
+    nu = 0.0
+    delta = 0.0001
+    x0 = 1
+    v0 = 0.087**2
+    qv = SVJQV((theta, kappa, epi, rho, mu, eta, lam, nu, delta, r, x0, v0))
 
-    Katm = kouQV.CGF(0, 1)
+    base1 = MyNormal()
+    base2 = MyGME(3)
+
+    ho1 = SPANonGaussian_HO(qv, base1)
+    ho2 = SPANonGaussian_HO(qv, base2)
+    wood1 = SPANonGaussian_Wood(qv, base1)
+    wood2 = SPANonGaussian_Wood(qv, base2)
+    lr = SPA_LR(qv)
+
+    Katm = qv.CGF(0, 1)
+    #print(Katm)
+    #a = qv.CGF(0.001, 1)
+    #a = qv.CGF(-0.001, 1)
     
     from numpy import linspace
-    vK = [0.1294]
-    #vK = linspace(Katm*0.7, Katm*0.99, 5)
+    vK = [Katm*1.0, Katm*0.99, Katm*1.01]
+    from numpy import inf
+    upper = inf
+    vK = linspace(Katm*0.7, Katm*1.02, 10)
+    print(vK)
     for K in vK:
-        tail_prob = wood.approximate(K)
-        tail_prob_gamma = wood_gmmma.approximate(K)
-        ho1 = martin.approximate(K, order=2)
-        ho2 = ho_gamma.approximate(K)
+        tail_prob1 = wood1.approximate(K)
+        tail_prob2 = wood2.approximate(K)
+        putho1 = ho1.approximate(K, includeTailProb=True)
+        putho2 = ho2.approximate(K, includeTailProb=True)
 
         from numpy import real, exp, inf
         from math import pi
-        from myfunctions import MyFuncByLeggauss
         from scipy.integrate import quad
         c = -5.0
-        f = lambda x, u: real(exp(kouQV.CGF(c+1.j*u, -1)-(c+1.j*u)*K)/(c+1.j*u)**2)/pi
+        f = lambda x, u: real(exp(qv.CGF(c+1.j*u, 0)-(c+1.j*u)*K)/(c+1.j*u)**2)/pi
         func = lambda z: f(0,z)
-        bench,err=quad(func, 0, 2048)
-        #bench = MyFuncRangeByLeggauss(0, f, 0, 2000)
-        print('{}\t {}, {}, {}'.format(K, ho1 - K*tail_prob - Katm + K, ho2 - K*tail_prob_gamma- Katm + K, bench))
+        bench,err=quad(func, 0, upper)
+        print('{}\t {}, {}, {}'.format(K, putho1 - Katm + K, putho2 - Katm + K, bench))
+
+        #f = lambda u: real(exp(qv.CGF(c+1.j*u, -1)-(c+1.j*u)*K)/(c+1.j*u))/pi
+        #bench,err=quad(f, 0, upper)
+        #print('{}\t {}, {}, {}'.format(K, tail_prob, tail_prob_gamma, bench))
+        #print('{}, {}'.format(ho1 - K*tail_prob, qv.tail_expectation(K)))
